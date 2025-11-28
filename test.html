@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Campus Study Spot Finder</title>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.production.min.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+    ></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          "Oxygen", "Ubuntu", "Cantarell", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      .app-container {
+        max-width: 430px;
+        margin: 0 auto;
+        min-height: 100vh;
+        background: #ffffff;
+        position: relative;
+      }
+
+      .safe-area-top {
+        height: env(safe-area-inset-top, 0);
+        background: #fff;
+      }
+
+      .safe-area-bottom {
+        height: env(safe-area-inset-bottom, 60px);
+      }
+
+      .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: 430px;
+        width: 100%;
+        background: white;
+        border-top: 1px solid #e5e7eb;
+        z-index: 1000;
+      }
+
+      .content-area {
+        padding-bottom: 80px;
+      }
+
+      .star-rating {
+        color: #fbbf24;
+      }
+
+      .star-empty {
+        color: #d1d5db;
+      }
+
+      .filter-chip {
+        transition: all 0.2s;
+      }
+
+      .filter-chip:active {
+        transform: scale(0.95);
+      }
+
+      .place-card {
+        transition: all 0.2s;
+      }
+
+      .place-card:active {
+        transform: scale(0.98);
+      }
+
+      .modal-overlay {
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+      }
+
+      .modal-content {
+        animation: slideUp 0.3s ease-out;
+      }
+
+      @keyframes slideUp {
+        from {
+          transform: translateY(100%);
+        }
+        to {
+          transform: translateY(0);
+        }
+      }
+
+      .noise-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .noise-bar {
+        width: 3px;
+        background: #10b981;
+        border-radius: 2px;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+      }
+
+      input[type="range"]::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+        border: none;
+      }
+
+      .tab-indicator {
+        transition: all 0.3s ease;
+      }
+
+      select {
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      // Sample data
+      const studyPlaces = [
+        {
+          id: 1,
+          name: "Mills Library - 4th Floor",
+          type: "Library",
+          location: "Mills Memorial Library",
+          building: "Mills",
+          rating: 4.5,
+          reviews: 127,
+          noiseLevel: 1,
+          crowdedness: 3,
+          hasOutlets: true,
+          hasFood: false,
+          hasWindows: true,
+          openLate: true,
+          image: "📚",
+          distance: "0.2 km",
+          description:
+            "Quiet study space with individual carrels and great natural lighting.",
+          tags: ["Quiet", "Individual Study", "Natural Light"],
+          currentAvailability: "moderate", // available, moderate, full
+          availableSeats: 12,
+          totalSeats: 40,
+        },
+        {
+          id: 2,
+          name: "Thode Library Café Area",
+          type: "Library Café",
+          location: "Thode Library",
+          building: "Thode",
+          rating: 4.2,
+          reviews: 89,
+          noiseLevel: 3,
+          crowdedness: 4,
+          hasOutlets: true,
+          hasFood: true,
+          hasWindows: true,
+          openLate: false,
+          image: "☕",
+          distance: "0.5 km",
+          description: "Collaborative space near café with group study tables.",
+          tags: ["Food Nearby", "Group Study", "Outlets"],
+          currentAvailability: "moderate",
+          availableSeats: 8,
+          totalSeats: 25,
+        },
+        {
+          id: 3,
+          name: "Student Center 2nd Floor Lounge",
+          type: "Common Area",
+          location: "McMaster University Student Center",
+          building: "MUSC",
+          rating: 3.8,
+          reviews: 156,
+          noiseLevel: 4,
+          crowdedness: 5,
+          hasOutlets: true,
+          hasFood: true,
+          hasWindows: false,
+          openLate: true,
+          image: "🛋️",
+          distance: "0.3 km",
+          description:
+            "Casual seating area, great for group work but can get noisy.",
+          tags: ["Social", "Food Nearby", "Open Late"],
+          currentAvailability: "full",
+          availableSeats: 2,
+          totalSeats: 50,
+        },
+        {
+          id: 4,
+          name: "Engineering Building Atrium",
+          type: "Academic Building",
+          location: "John Hodgins Engineering Building",
+          building: "JHE",
+          rating: 4.0,
+          reviews: 64,
+          noiseLevel: 2,
+          crowdedness: 3,
+          hasOutlets: true,
+          hasFood: false,
+          hasWindows: true,
+          openLate: false,
+          image: "🏗️",
+          distance: "0.4 km",
+          description:
+            "Modern space with lots of natural light and whiteboard walls.",
+          tags: ["Natural Light", "Whiteboards", "Modern"],
+          currentAvailability: "available",
+          availableSeats: 20,
+          totalSeats: 30,
+        },
+        {
+          id: 5,
+          name: "Outdoor Courtyard by BSB",
+          type: "Outdoor",
+          location: "Burke Science Building Courtyard",
+          building: "BSB",
+          rating: 4.3,
+          reviews: 43,
+          noiseLevel: 3,
+          crowdedness: 2,
+          hasOutlets: false,
+          hasFood: false,
+          hasWindows: false,
+          openLate: false,
+          image: "🌳",
+          distance: "0.6 km",
+          description: "Peaceful outdoor seating, weather dependent.",
+          tags: ["Outdoor", "Peaceful", "Fresh Air"],
+          currentAvailability: "available",
+          availableSeats: 15,
+          totalSeats: 20,
+        },
+        {
+          id: 6,
+          name: "Health Sciences Library",
+          type: "Library",
+          location: "Health Sciences Library",
+          building: "HSL",
+          rating: 4.6,
+          reviews: 92,
+          noiseLevel: 1,
+          crowdedness: 2,
+          hasOutlets: true,
+          hasFood: false,
+          hasWindows: true,
+          openLate: true,
+          image: "🏥",
+          distance: "0.7 km",
+          description: "Very quiet and less crowded, perfect for focused work.",
+          tags: ["Very Quiet", "Less Crowded", "Professional"],
+          currentAvailability: "available",
+          availableSeats: 25,
+          totalSeats: 35,
+        },
+        {
+          id: 7,
+          name: "Centro Coffee Bar",
+          type: "Café",
+          location: "Centro at McMaster Innovation Park",
+          building: "MIP",
+          rating: 4.4,
+          reviews: 118,
+          noiseLevel: 3,
+          crowdedness: 3,
+          hasOutlets: true,
+          hasFood: true,
+          hasWindows: true,
+          openLate: false,
+          image: "☕",
+          distance: "1.2 km",
+          description:
+            "Off-campus café with excellent coffee and study atmosphere.",
+          tags: ["Coffee", "Off-Campus", "Cozy"],
+          currentAvailability: "moderate",
+          availableSeats: 6,
+          totalSeats: 18,
+        },
+        {
+          id: 8,
+          name: "Innis Library Reading Room",
+          type: "Library",
+          location: "Innis Library",
+          building: "Innis",
+          rating: 4.1,
+          reviews: 71,
+          noiseLevel: 2,
+          crowdedness: 2,
+          hasOutlets: true,
+          hasFood: false,
+          hasWindows: true,
+          openLate: false,
+          image: "📖",
+          distance: "0.8 km",
+          description: "Traditional library setting with comfortable seating.",
+          tags: ["Traditional", "Comfortable", "Quiet"],
+          currentAvailability: "available",
+          availableSeats: 18,
+          totalSeats: 28,
+        },
+      ];
+
+      // Main App Component
+      function App() {
+        const [currentScreen, setCurrentScreen] = useState("browse");
+        const [selectedPlace, setSelectedPlace] = useState(null);
+        const [favorites, setFavorites] = useState([1, 6]);
+        const [visited, setVisited] = useState([1, 2, 3]);
+        const [searchQuery, setSearchQuery] = useState("");
+        const [showFilters, setShowFilters] = useState(false);
+        const [showReviewModal, setShowReviewModal] = useState(false);
+        const [showAddPlace, setShowAddPlace] = useState(false);
+        const [filters, setFilters] = useState({
+          noiseLevel: [1, 2, 3, 4, 5],
+          crowdedness: [1, 2, 3, 4, 5],
+          hasOutlets: false,
+          hasFood: false,
+          openLate: false,
+          type: "all",
+        });
+
+        const filteredPlaces = studyPlaces.filter((place) => {
+          const matchesSearch =
+            place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            place.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            place.tags.some((tag) =>
+              tag.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+
+          const matchesFilters =
+            filters.noiseLevel.includes(place.noiseLevel) &&
+            filters.crowdedness.includes(place.crowdedness) &&
+            (!filters.hasOutlets || place.hasOutlets) &&
+            (!filters.hasFood || place.hasFood) &&
+            (!filters.openLate || place.openLate) &&
+            (filters.type === "all" || place.type === filters.type);
+
+          return matchesSearch && matchesFilters;
+        });
+
+        const toggleFavorite = (id) => {
+          setFavorites((prev) =>
+            prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
+          );
+        };
+
+        const markVisited = (id) => {
+          if (!visited.includes(id)) {
+            setVisited((prev) => [...prev, id]);
+          }
+        };
+
+        return (
+          <div className="app-container">
+            <div className="safe-area-top"></div>
+
+            {/* Header */}
+            {currentScreen !== "detail" && (
+              <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-50">
+                <div className="flex items-center justify-between mb-3">
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    Study Spots
+                  </h1>
+                  <div className="flex items-center gap-2">
+                    {currentScreen === "browse" && (
+                      <button
+                        onClick={() => setShowAddPlace(true)}
+                        className="p-2 rounded-full hover:bg-gray-100"
+                      >
+                        <i className="fas fa-plus text-gray-600"></i>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowFilters(true)}
+                      className="p-2 rounded-full hover:bg-gray-100"
+                    >
+                      <i className="fas fa-sliders-h text-gray-600"></i>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                  <input
+                    type="text"
+                    placeholder="Search study places..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    >
+                      <i className="fas fa-times"></i>
+                    </button>
+                  )}
+                </div>
+              </header>
+            )}
+
+            {/* Content Area */}
+            <div className="content-area">
+              {currentScreen === "browse" && (
+                <BrowseScreen
+                  places={filteredPlaces}
+                  onSelectPlace={(place) => {
+                    setSelectedPlace(place);
+                    setCurrentScreen("detail");
+                  }}
+                  favorites={favorites}
+                  visited={visited}
+                  toggleFavorite={toggleFavorite}
+                />
+              )}
+
+              {currentScreen === "favorites" && (
+                <FavoritesScreen
+                  places={studyPlaces.filter((p) => favorites.includes(p.id))}
+                  onSelectPlace={(place) => {
+                    setSelectedPlace(place);
+                    setCurrentScreen("detail");
+                  }}
+                  favorites={favorites}
+                  visited={visited}
+                  toggleFavorite={toggleFavorite}
+                  searchQuery={searchQuery}
+                />
+              )}
+
+              {currentScreen === "visited" && (
+                <VisitedScreen
+                  places={studyPlaces.filter((p) => visited.includes(p.id))}
+                  onSelectPlace={(place) => {
+                    setSelectedPlace(place);
+                    setCurrentScreen("detail");
+                  }}
+                  favorites={favorites}
+                  visited={visited}
+                  toggleFavorite={toggleFavorite}
+                  searchQuery={searchQuery}
+                />
+              )}
+
+              {currentScreen === "detail" && selectedPlace && (
+                <DetailScreen
+                  place={selectedPlace}
+                  onBack={() => setCurrentScreen("browse")}
+                  isFavorite={favorites.includes(selectedPlace.id)}
+                  isVisited={visited.includes(selectedPlace.id)}
+                  toggleFavorite={toggleFavorite}
+                  markVisited={markVisited}
+                  onAddReview={() => setShowReviewModal(true)}
+                />
+              )}
+            </div>
+
+            {/* Filter Modal */}
+            {showFilters && (
+              <FilterModal
+                filters={filters}
+                setFilters={setFilters}
+                onClose={() => setShowFilters(false)}
+              />
+            )}
+
+            {/* Review Modal */}
+            {showReviewModal && (
+              <ReviewModal
+                place={selectedPlace}
+                onClose={() => setShowReviewModal(false)}
+                onSubmit={() => {
+                  setShowReviewModal(false);
+                  alert("Review submitted! (Demo mode)");
+                }}
+              />
+            )}
+
+            {/* Add Place Modal */}
+            {showAddPlace && (
+              <AddPlaceModal
+                onClose={() => setShowAddPlace(false)}
+                onSubmit={() => {
+                  setShowAddPlace(false);
+                  alert(
+                    "Thank you! Your study place suggestion has been submitted for review."
+                  );
+                }}
+              />
+            )}
+
+            {/* Bottom Navigation */}
+            {currentScreen !== "detail" && (
+              <nav className="bottom-nav">
+                <div className="flex justify-around items-center h-16">
+                  <NavButton
+                    icon="compass"
+                    label="Browse"
+                    active={currentScreen === "browse"}
+                    onClick={() => setCurrentScreen("browse")}
+                  />
+                  <NavButton
+                    icon="heart"
+                    label="Favorites"
+                    active={currentScreen === "favorites"}
+                    onClick={() => setCurrentScreen("favorites")}
+                    badge={favorites.length}
+                  />
+                  <NavButton
+                    icon="check-circle"
+                    label="Visited"
+                    active={currentScreen === "visited"}
+                    onClick={() => setCurrentScreen("visited")}
+                    badge={visited.length}
+                  />
+                </div>
+              </nav>
+            )}
+
+            <div className="safe-area-bottom"></div>
+          </div>
+        );
+      }
+
+      // Navigation Button Component
+      function NavButton({ icon, label, active, onClick, badge }) {
+        return (
+          <button
+            onClick={onClick}
+            className="flex flex-col items-center justify-center flex-1 relative"
+          >
+            <div className="relative">
+              <i
+                className={`fas fa-${icon} text-xl ${
+                  active ? "text-blue-600" : "text-gray-400"
+                }`}
+              ></i>
+              {badge > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {badge}
+                </span>
+              )}
+            </div>
+            <span
+              className={`text-xs mt-1 ${
+                active ? "text-blue-600 font-medium" : "text-gray-500"
+              }`}
+            >
+              {label}
+            </span>
+          </button>
+        );
+      }
+
+      // Browse Screen Component
+      function BrowseScreen({
+        places,
+        onSelectPlace,
+        favorites,
+        visited,
+        toggleFavorite,
+      }) {
+        const [sortBy, setSortBy] = useState("distance");
+
+        const sortedPlaces = [...places].sort((a, b) => {
+          switch (sortBy) {
+            case "rating":
+              return b.rating - a.rating;
+            case "distance":
+              return parseFloat(a.distance) - parseFloat(b.distance);
+            case "reviews":
+              return b.reviews - a.reviews;
+            default:
+              return 0;
+          }
+        });
+
+        return (
+          <div className="p-4">
+            {/* Sort Options */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <SortChip
+                label="Nearest"
+                active={sortBy === "distance"}
+                onClick={() => setSortBy("distance")}
+                icon="location-arrow"
+              />
+              <SortChip
+                label="Top Rated"
+                active={sortBy === "rating"}
+                onClick={() => setSortBy("rating")}
+                icon="star"
+              />
+              <SortChip
+                label="Popular"
+                active={sortBy === "reviews"}
+                onClick={() => setSortBy("reviews")}
+                icon="comment"
+              />
+            </div>
+
+            {/* Results Count */}
+            <p className="text-sm text-gray-600 mb-4">
+              {sortedPlaces.length}{" "}
+              {sortedPlaces.length === 1 ? "place" : "places"} found
+            </p>
+
+            {/* Place Cards */}
+            <div className="space-y-3">
+              {sortedPlaces.map((place) => (
+                <PlaceCard
+                  key={place.id}
+                  place={place}
+                  onClick={() => onSelectPlace(place)}
+                  isFavorite={favorites.includes(place.id)}
+                  isVisited={visited.includes(place.id)}
+                  onToggleFavorite={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite(place.id);
+                  }}
+                />
+              ))}
+            </div>
+
+            {sortedPlaces.length === 0 && (
+              <div className="text-center py-12">
+                <i className="fas fa-search text-4xl text-gray-300 mb-3"></i>
+                <p className="text-gray-500">
+                  No study places match your criteria
+                </p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Try adjusting your filters
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // Sort Chip Component
+      function SortChip({ label, active, onClick, icon }) {
+        return (
+          <button
+            onClick={onClick}
+            className={`filter-chip px-3 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-1 ${
+              active
+                ? "bg-blue-600 text-white"
+                : "bg-white text-gray-700 border border-gray-300"
+            }`}
+          >
+            <i className={`fas fa-${icon} text-xs`}></i>
+            <span className="truncate">{label}</span>
+          </button>
+        );
+      }
+
+      // Availability Badge Component
+      function AvailabilityBadge({ status, seats, totalSeats }) {
+        const config = {
+          available: {
+            color: "bg-green-100 text-green-700 border-green-200",
+            icon: "check-circle",
+            text: "Available",
+          },
+          moderate: {
+            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
+            icon: "clock",
+            text: "Filling Up",
+          },
+          full: {
+            color: "bg-red-100 text-red-700 border-red-200",
+            icon: "exclamation-circle",
+            text: "Nearly Full",
+          },
+        };
+
+        const { color, icon, text } = config[status];
+
+        return (
+          <div
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${color}`}
+          >
+            <i className={`fas fa-${icon}`}></i>
+            <span>{text}</span>
+            <span className="opacity-75">
+              • {seats}/{totalSeats}
+            </span>
+          </div>
+        );
+      }
+
+      // Place Card Component
+      function PlaceCard({
+        place,
+        onClick,
+        isFavorite,
+        isVisited,
+        onToggleFavorite,
+      }) {
+        return (
+          <div
+            onClick={onClick}
+            className="place-card bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden cursor-pointer"
+          >
+            <div className="p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-2xl">{place.image}</span>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        {place.name}
+                      </h3>
+                      <p className="text-sm text-gray-500">{place.location}</p>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={onToggleFavorite} className="p-2 -mt-2 -mr-2">
+                  <i
+                    className={`${
+                      isFavorite ? "fas" : "far"
+                    } fa-heart text-xl ${
+                      isFavorite ? "text-red-500" : "text-gray-400"
+                    }`}
+                  ></i>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center">
+                  <StarRating rating={place.rating} />
+                  <span className="ml-1 text-sm text-gray-600">
+                    {place.rating} ({place.reviews})
+                  </span>
+                </div>
+                <span className="text-sm text-gray-500">•</span>
+                <span className="text-sm text-gray-600">
+                  <i className="fas fa-location-dot mr-1 text-gray-400"></i>
+                  {place.distance}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                <NoiseIndicator level={place.noiseLevel} />
+                <CrowdIndicator level={place.crowdedness} />
+                {place.hasOutlets && (
+                  <Badge icon="plug" text="Outlets" color="green" />
+                )}
+                {place.hasFood && (
+                  <Badge icon="utensils" text="Food" color="orange" />
+                )}
+                {place.openLate && (
+                  <Badge icon="moon" text="Open Late" color="purple" />
+                )}
+              </div>
+
+              {isVisited && (
+                <div className="flex items-center text-sm text-green-600">
+                  <i className="fas fa-check-circle mr-1"></i>
+                  You've been here
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      // Star Rating Component
+      function StarRating({ rating, size = "sm" }) {
+        const stars = [];
+        const fullStars = Math.floor(rating);
+        const hasHalfStar = rating % 1 >= 0.5;
+
+        for (let i = 0; i < 5; i++) {
+          if (i < fullStars) {
+            stars.push(<i key={i} className="fas fa-star star-rating"></i>);
+          } else if (i === fullStars && hasHalfStar) {
+            stars.push(
+              <i key={i} className="fas fa-star-half-alt star-rating"></i>
+            );
+          } else {
+            stars.push(<i key={i} className="far fa-star star-empty"></i>);
+          }
+        }
+
+        return (
+          <div
+            className={`flex gap-0.5 ${size === "lg" ? "text-lg" : "text-sm"}`}
+          >
+            {stars}
+          </div>
+        );
+      }
+
+      // Noise Indicator Component
+      function NoiseIndicator({ level }) {
+        const labels = ["Silent", "Quiet", "Moderate", "Noisy", "Very Noisy"];
+        const colors = [
+          "text-green-600",
+          "text-green-500",
+          "text-yellow-500",
+          "text-orange-500",
+          "text-red-500",
+        ];
+
+        return (
+          <div
+            className={`flex items-center gap-1 text-xs ${
+              colors[level - 1]
+            } bg-gray-100 px-2 py-1 rounded`}
+          >
+            <i className="fas fa-volume-high"></i>
+            <span>{labels[level - 1]}</span>
+          </div>
+        );
+      }
+
+      // Crowd Indicator Component
+      function CrowdIndicator({ level }) {
+        const labels = ["Empty", "Few People", "Moderate", "Busy", "Very Busy"];
+        const colors = [
+          "text-green-600",
+          "text-green-500",
+          "text-yellow-500",
+          "text-orange-500",
+          "text-red-500",
+        ];
+
+        return (
+          <div
+            className={`flex items-center gap-1 text-xs ${
+              colors[level - 1]
+            } bg-gray-100 px-2 py-1 rounded`}
+          >
+            <i className="fas fa-users"></i>
+            <span>{labels[level - 1]}</span>
+          </div>
+        );
+      }
+
+      // Badge Component
+      function Badge({ icon, text, color }) {
+        const colorClasses = {
+          green: "text-green-700 bg-green-50",
+          orange: "text-orange-700 bg-orange-50",
+          purple: "text-purple-700 bg-purple-50",
+          blue: "text-blue-700 bg-blue-50",
+        };
+
+        return (
+          <div
+            className={`flex items-center gap-1 text-xs ${colorClasses[color]} px-2 py-1 rounded`}
+          >
+            <i className={`fas fa-${icon}`}></i>
+            <span>{text}</span>
+          </div>
+        );
+      }
+
+      // Detail Screen Component
+      function DetailScreen({
+        place,
+        onBack,
+        isFavorite,
+        isVisited,
+        toggleFavorite,
+        markVisited,
+        onAddReview,
+      }) {
+        const [activeTab, setActiveTab] = useState("overview");
+
+        return (
+          <div className="min-h-screen bg-white">
+            {/* Header with Back Button */}
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-200">
+              <div className="flex items-center justify-between p-4">
+                <button onClick={onBack} className="p-2 -ml-2">
+                  <i className="fas fa-arrow-left text-xl text-gray-700"></i>
+                </button>
+                <button
+                  onClick={() => toggleFavorite(place.id)}
+                  className="p-2 -mr-2"
+                >
+                  <i
+                    className={`${
+                      isFavorite ? "fas" : "far"
+                    } fa-heart text-xl ${
+                      isFavorite ? "text-red-500" : "text-gray-400"
+                    }`}
+                  ></i>
+                </button>
+              </div>
+            </div>
+
+            {/* Place Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-start gap-3 mb-4">
+                <span className="text-4xl">{place.image}</span>
+                <div className="flex-1">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                    {place.name}
+                  </h1>
+                  <p className="text-gray-600 mb-2">{place.location}</p>
+                  <div className="flex items-center gap-2">
+                    <StarRating rating={place.rating} size="lg" />
+                    <span className="text-lg font-semibold text-gray-900">
+                      {place.rating}
+                    </span>
+                    <span className="text-gray-500">
+                      ({place.reviews} reviews)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                {!isVisited && (
+                  <button
+                    onClick={() => markVisited(place.id)}
+                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-medium"
+                  >
+                    <i className="fas fa-check mr-2"></i>
+                    Mark as Visited
+                  </button>
+                )}
+                <button
+                  onClick={onAddReview}
+                  className={`${isVisited ? "flex-1" : "flex-1"} ${
+                    isVisited
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-700"
+                  } py-3 rounded-lg font-medium`}
+                >
+                  <i className="fas fa-star mr-2"></i>
+                  Add Review
+                </button>
+              </div>
+
+              {isVisited && (
+                <div className="mt-3 flex items-center justify-center text-sm text-green-600">
+                  <i className="fas fa-check-circle mr-1"></i>
+                  You've visited this place
+                </div>
+              )}
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 sticky top-20 bg-white z-40">
+              <button
+                onClick={() => setActiveTab("overview")}
+                className={`flex-1 py-3 font-medium relative ${
+                  activeTab === "overview" ? "text-blue-600" : "text-gray-500"
+                }`}
+              >
+                Overview
+                {activeTab === "overview" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 tab-indicator"></div>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab("reviews")}
+                className={`flex-1 py-3 font-medium relative ${
+                  activeTab === "reviews" ? "text-blue-600" : "text-gray-500"
+                }`}
+              >
+                Reviews ({place.reviews})
+                {activeTab === "reviews" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 tab-indicator"></div>
+                )}
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="p-6">
+              {activeTab === "overview" && <OverviewTab place={place} />}
+              {activeTab === "reviews" && <ReviewsTab place={place} />}
+            </div>
+          </div>
+        );
+      }
+
+      // Overview Tab Component
+      function OverviewTab({ place }) {
+        return (
+          <div className="space-y-6">
+            {/* Description */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">About</h3>
+              <p className="text-gray-600">{place.description}</p>
+            </div>
+
+            {/* Quick Info */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Details</h3>
+              <div className="space-y-3">
+                <InfoRow icon="volume-high" label="Noise Level">
+                  <NoiseIndicator level={place.noiseLevel} />
+                </InfoRow>
+                <InfoRow icon="users" label="Crowdedness">
+                  <CrowdIndicator level={place.crowdedness} />
+                </InfoRow>
+                <InfoRow
+                  icon="location-dot"
+                  label="Distance"
+                  text={place.distance}
+                />
+                <InfoRow
+                  icon="building"
+                  label="Building"
+                  text={place.building}
+                />
+                <InfoRow
+                  icon="clock"
+                  label="Hours"
+                  text={
+                    place.openLate ? "Open until midnight" : "Closes at 6 PM"
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Amenities */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Amenities</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <AmenityItem
+                  icon="plug"
+                  label="Power Outlets"
+                  available={place.hasOutlets}
+                />
+                <AmenityItem
+                  icon="utensils"
+                  label="Food Nearby"
+                  available={place.hasFood}
+                />
+                <AmenityItem
+                  icon="window-maximize"
+                  label="Natural Light"
+                  available={place.hasWindows}
+                />
+                <AmenityItem
+                  icon="moon"
+                  label="Open Late"
+                  available={place.openLate}
+                />
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Tags</h3>
+              <div className="flex flex-wrap gap-2">
+                {place.tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Info Row Component
+      function InfoRow({ icon, label, text, children }) {
+        return (
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-3">
+              <i className={`fas fa-${icon} text-gray-400 w-5`}></i>
+              <span className="text-gray-700">{label}</span>
+            </div>
+            {text ? (
+              <span className="text-gray-900 font-medium">{text}</span>
+            ) : (
+              children
+            )}
+          </div>
+        );
+      }
+
+      // Amenity Item Component
+      function AmenityItem({ icon, label, available }) {
+        return (
+          <div
+            className={`flex items-center gap-2 p-3 rounded-lg border ${
+              available
+                ? "border-green-200 bg-green-50"
+                : "border-gray-200 bg-white"
+            }`}
+          >
+            <i
+              className={`fas fa-${icon} ${
+                available ? "text-green-600" : "text-gray-400"
+              }`}
+            ></i>
+            <span
+              className={`text-sm ${
+                available ? "text-green-900" : "text-gray-500"
+              }`}
+            >
+              {label}
+            </span>
+            {!available && (
+              <i className="fas fa-times text-gray-400 ml-auto text-xs"></i>
+            )}
+          </div>
+        );
+      }
+
+      // Reviews Tab Component
+      function ReviewsTab({ place }) {
+        const sampleReviews = [
+          {
+            id: 1,
+            author: "Sarah M.",
+            rating: 5,
+            date: "2 days ago",
+            text: "Perfect spot for individual study! Very quiet and lots of natural light. The carrels are spacious and comfortable.",
+            helpful: 12,
+          },
+          {
+            id: 2,
+            author: "James K.",
+            rating: 4,
+            date: "1 week ago",
+            text: "Great study environment, but can get crowded during exam season. Come early to get a good spot!",
+            helpful: 8,
+          },
+          {
+            id: 3,
+            author: "Emily R.",
+            rating: 5,
+            date: "2 weeks ago",
+            text: "Love this place! Stayed here until midnight working on my project. Very peaceful atmosphere.",
+            helpful: 15,
+          },
+        ];
+
+        return (
+          <div className="space-y-4">
+            {/* Rating Summary */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-gray-900">
+                    {place.rating}
+                  </div>
+                  <StarRating rating={place.rating} />
+                  <div className="text-sm text-gray-500 mt-1">
+                    {place.reviews} reviews
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <RatingBar stars={5} count={85} total={place.reviews} />
+                  <RatingBar stars={4} count={30} total={place.reviews} />
+                  <RatingBar stars={3} count={8} total={place.reviews} />
+                  <RatingBar stars={2} count={3} total={place.reviews} />
+                  <RatingBar stars={1} count={1} total={place.reviews} />
+                </div>
+              </div>
+            </div>
+
+            {/* Individual Reviews */}
+            <div className="space-y-4">
+              {sampleReviews.map((review) => (
+                <ReviewCard key={review.id} review={review} />
+              ))}
+            </div>
+
+            {/* Load More */}
+            <button className="w-full py-3 border border-gray-300 rounded-lg text-gray-700 font-medium">
+              Load More Reviews
+            </button>
+          </div>
+        );
+      }
+
+      // Rating Bar Component
+      function RatingBar({ stars, count, total }) {
+        const percentage = (count / total) * 100;
+
+        return (
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs text-gray-600 w-8">
+              {stars} <i className="fas fa-star text-yellow-400 text-xs"></i>
+            </span>
+            <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-yellow-400 h-full rounded-full"
+                style={{ width: `${percentage}%` }}
+              ></div>
+            </div>
+            <span className="text-xs text-gray-500 w-8 text-right">
+              {count}
+            </span>
+          </div>
+        );
+      }
+
+      // Review Card Component
+      function ReviewCard({ review }) {
+        return (
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <div className="font-semibold text-gray-900">
+                  {review.author}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <StarRating rating={review.rating} />
+                  <span className="text-xs text-gray-500">{review.date}</span>
+                </div>
+              </div>
+            </div>
+            <p className="text-gray-700 mb-3">{review.text}</p>
+            <button className="text-sm text-gray-500">
+              <i className="far fa-thumbs-up mr-1"></i>
+              Helpful ({review.helpful})
+            </button>
+          </div>
+        );
+      }
+
+      // Favorites Screen Component
+      function FavoritesScreen({
+        places,
+        onSelectPlace,
+        favorites,
+        visited,
+        toggleFavorite,
+        searchQuery,
+      }) {
+        const filteredPlaces = places.filter((place) => {
+          const matchesSearch =
+            searchQuery === "" ||
+            place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            place.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            place.tags.some((tag) =>
+              tag.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+          return matchesSearch;
+        });
+
+        return (
+          <div className="p-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              My Favorites
+            </h2>
+
+            {filteredPlaces.length === 0 && places.length > 0 && (
+              <div className="text-center py-12">
+                <i className="fas fa-search text-4xl text-gray-300 mb-3"></i>
+                <p className="text-gray-500">No favorites match your search</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Try a different search term
+                </p>
+              </div>
+            )}
+
+            {places.length === 0 ? (
+              <div className="text-center py-12">
+                <i className="far fa-heart text-4xl text-gray-300 mb-3"></i>
+                <p className="text-gray-500">No favorite places yet</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Tap the heart icon to save places
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredPlaces.map((place) => (
+                  <PlaceCard
+                    key={place.id}
+                    place={place}
+                    onClick={() => onSelectPlace(place)}
+                    isFavorite={favorites.includes(place.id)}
+                    isVisited={visited.includes(place.id)}
+                    onToggleFavorite={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(place.id);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // Visited Screen Component
+      function VisitedScreen({
+        places,
+        onSelectPlace,
+        favorites,
+        visited,
+        toggleFavorite,
+        searchQuery,
+      }) {
+        const filteredPlaces = places.filter((place) => {
+          const matchesSearch =
+            searchQuery === "" ||
+            place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            place.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            place.tags.some((tag) =>
+              tag.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+          return matchesSearch;
+        });
+
+        return (
+          <div className="p-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              Places I've Visited
+            </h2>
+
+            {filteredPlaces.length === 0 && places.length > 0 && (
+              <div className="text-center py-12">
+                <i className="fas fa-search text-4xl text-gray-300 mb-3"></i>
+                <p className="text-gray-500">
+                  No visited places match your search
+                </p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Try a different search term
+                </p>
+              </div>
+            )}
+
+            {places.length === 0 ? (
+              <div className="text-center py-12">
+                <i className="far fa-check-circle text-4xl text-gray-300 mb-3"></i>
+                <p className="text-gray-500">No visited places yet</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Mark places you've been to
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredPlaces.map((place) => (
+                  <PlaceCard
+                    key={place.id}
+                    place={place}
+                    onClick={() => onSelectPlace(place)}
+                    isFavorite={favorites.includes(place.id)}
+                    isVisited={visited.includes(place.id)}
+                    onToggleFavorite={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(place.id);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // Filter Modal Component
+      function FilterModal({ filters, setFilters, onClose }) {
+        const [localFilters, setLocalFilters] = useState(filters);
+
+        // Update local filters when modal opens with new filter values
+        useEffect(() => {
+          setLocalFilters(filters);
+        }, [filters]);
+
+        const handleApply = () => {
+          setFilters(localFilters);
+          onClose();
+        };
+
+        const handleReset = () => {
+          const resetFilters = {
+            noiseLevel: [1, 2, 3, 4, 5],
+            crowdedness: [1, 2, 3, 4, 5],
+            hasOutlets: false,
+            hasFood: false,
+            openLate: false,
+            type: "all",
+          };
+          setLocalFilters(resetFilters);
+        };
+
+        const toggleNoiseLevel = (level) => {
+          setLocalFilters((prev) => ({
+            ...prev,
+            noiseLevel: prev.noiseLevel.includes(level)
+              ? prev.noiseLevel.filter((l) => l !== level)
+              : [...prev.noiseLevel, level].sort(),
+          }));
+        };
+
+        const toggleCrowdedness = (level) => {
+          setLocalFilters((prev) => ({
+            ...prev,
+            crowdedness: prev.crowdedness.includes(level)
+              ? prev.crowdedness.filter((l) => l !== level)
+              : [...prev.crowdedness, level].sort(),
+          }));
+        };
+
+        return (
+          <div className="fixed inset-0 z-[1001]">
+            <div
+              className="modal-overlay absolute inset-0"
+              onClick={onClose}
+            ></div>
+            <div className="absolute inset-x-0 bottom-0 max-w-[430px] mx-auto">
+              <div className="modal-content bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto">
+                {/* Header */}
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-3xl">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-gray-900">Filters</h3>
+                    <button onClick={onClose} className="p-2 -mr-2">
+                      <i className="fas fa-times text-gray-500 text-xl"></i>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter Content */}
+                <div className="p-6 space-y-6 pb-24">
+                  {/* Place Type */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-3">
+                      Place Type
+                    </label>
+                    <div className="space-y-2">
+                      {[
+                        { value: "all", label: "All Places" },
+                        { value: "Library", label: "Library" },
+                        { value: "Café", label: "Café" },
+                        { value: "Common Area", label: "Common Area" },
+                        {
+                          value: "Academic Building",
+                          label: "Academic Building",
+                        },
+                        { value: "Outdoor", label: "Outdoor" },
+                      ].map((option) => (
+                        <label key={option.value} className="flex items-center">
+                          <input
+                            type="radio"
+                            name="type"
+                            checked={localFilters.type === option.value}
+                            onChange={() =>
+                              setLocalFilters((prev) => ({
+                                ...prev,
+                                type: option.value,
+                              }))
+                            }
+                            className="mr-3"
+                          />
+                          <span className="text-gray-700">{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Noise Level */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-3">
+                      Noise Level
+                    </label>
+                    <div className="space-y-2">
+                      {[
+                        { level: 1, label: "Silent" },
+                        { level: 2, label: "Quiet" },
+                        { level: 3, label: "Moderate" },
+                        { level: 4, label: "Noisy" },
+                        { level: 5, label: "Very Noisy" },
+                      ].map((option) => (
+                        <label key={option.level} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={localFilters.noiseLevel.includes(
+                              option.level
+                            )}
+                            onChange={() => toggleNoiseLevel(option.level)}
+                            className="mr-3"
+                          />
+                          <span className="text-gray-700">{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Crowdedness */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-3">
+                      Crowdedness
+                    </label>
+                    <div className="space-y-2">
+                      {[
+                        { level: 1, label: "Empty" },
+                        { level: 2, label: "Few People" },
+                        { level: 3, label: "Moderate" },
+                        { level: 4, label: "Busy" },
+                        { level: 5, label: "Very Busy" },
+                      ].map((option) => (
+                        <label key={option.level} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={localFilters.crowdedness.includes(
+                              option.level
+                            )}
+                            onChange={() => toggleCrowdedness(option.level)}
+                            className="mr-3"
+                          />
+                          <span className="text-gray-700">{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Amenities */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-3">
+                      Amenities
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={localFilters.hasOutlets}
+                          onChange={(e) =>
+                            setLocalFilters((prev) => ({
+                              ...prev,
+                              hasOutlets: e.target.checked,
+                            }))
+                          }
+                          className="mr-3"
+                        />
+                        <i className="fas fa-plug text-gray-500 mr-2"></i>
+                        <span className="text-gray-700">Has Power Outlets</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={localFilters.hasFood}
+                          onChange={(e) =>
+                            setLocalFilters((prev) => ({
+                              ...prev,
+                              hasFood: e.target.checked,
+                            }))
+                          }
+                          className="mr-3"
+                        />
+                        <i className="fas fa-utensils text-gray-500 mr-2"></i>
+                        <span className="text-gray-700">Food Nearby</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={localFilters.openLate}
+                          onChange={(e) =>
+                            setLocalFilters((prev) => ({
+                              ...prev,
+                              openLate: e.target.checked,
+                            }))
+                          }
+                          className="mr-3"
+                        />
+                        <i className="fas fa-moon text-gray-500 mr-2"></i>
+                        <span className="text-gray-700">Open Late</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex gap-3">
+                  <button
+                    onClick={handleReset}
+                    className="flex-1 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    onClick={handleApply}
+                    className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium"
+                  >
+                    Apply Filters
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Add Place Modal Component
+      function AddPlaceModal({ onClose, onSubmit }) {
+        const [placeName, setPlaceName] = useState("");
+        const [location, setLocation] = useState("");
+        const [placeType, setPlaceType] = useState("Library");
+        const [description, setDescription] = useState("");
+        const [hasOutlets, setHasOutlets] = useState(false);
+        const [hasFood, setHasFood] = useState(false);
+        const [openLate, setOpenLate] = useState(false);
+
+        const handleSubmit = () => {
+          if (placeName.trim().length < 1) {
+            alert("Please enter a place name");
+            return;
+          }
+          if (location.trim().length < 1) {
+            alert("Please enter a location");
+            return;
+          }
+          if (description.trim().length < 10) {
+            alert("Please write at least 10 characters for the description");
+            return;
+          }
+          onSubmit();
+        };
+
+        return (
+          <div className="fixed inset-0 z-[1001]">
+            <div
+              className="modal-overlay absolute inset-0"
+              onClick={onClose}
+            ></div>
+            <div
+              className="absolute inset-x-0 bottom-0 max-w-[430px] mx-auto w-full"
+              style={{ contain: "layout" }}
+            >
+              <div
+                className="modal-content bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto overflow-x-hidden w-full"
+                style={{ position: "relative", width: "100%" }}
+              >
+                {/* Header */}
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-3xl">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Add Study Place
+                    </h3>
+                    <button onClick={onClose} className="p-2 -mr-2">
+                      <i className="fas fa-times text-gray-500 text-xl"></i>
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Suggest a new study spot
+                  </p>
+                </div>
+
+                {/* Form Content */}
+                <div
+                  className="p-6 space-y-4 pb-24"
+                  style={{ boxSizing: "border-box", maxWidth: "100%" }}
+                >
+                  {/* Place Name */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-2">
+                      Place Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={placeName}
+                      onChange={(e) => setPlaceName(e.target.value)}
+                      placeholder="e.g., Mills Library 3rd Floor"
+                      className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Location */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-2">
+                      Location/Building <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="e.g., Mills Memorial Library"
+                      className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Place Type */}
+                  <div style={{ maxWidth: "100%", boxSizing: "border-box" }}>
+                    <label className="block font-semibold text-gray-900 mb-2">
+                      Place Type
+                    </label>
+                    <select
+                      value={placeType}
+                      onChange={(e) => setPlaceType(e.target.value)}
+                      className="w-full max-w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      style={{ boxSizing: "border-box", maxWidth: "100%" }}
+                    >
+                      <option value="Library">Library</option>
+                      <option value="Café">Café</option>
+                      <option value="Common Area">Common Area</option>
+                      <option value="Academic Building">
+                        Academic Building
+                      </option>
+                      <option value="Outdoor">Outdoor</option>
+                    </select>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-2">
+                      Description <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe this study place (noise level, atmosphere, best for...)"
+                      className="w-full border border-gray-300 rounded-lg p-3 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {description.length} characters (minimum 10)
+                    </p>
+                  </div>
+
+                  {/* Amenities */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-3">
+                      Amenities
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={hasOutlets}
+                          onChange={(e) => setHasOutlets(e.target.checked)}
+                          className="mr-3"
+                        />
+                        <i className="fas fa-plug text-gray-500 mr-2"></i>
+                        <span className="text-gray-700">Has Power Outlets</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={hasFood}
+                          onChange={(e) => setHasFood(e.target.checked)}
+                          className="mr-3"
+                        />
+                        <i className="fas fa-utensils text-gray-500 mr-2"></i>
+                        <span className="text-gray-700">Food Nearby</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={openLate}
+                          onChange={(e) => setOpenLate(e.target.checked)}
+                          className="mr-3"
+                        />
+                        <i className="fas fa-moon text-gray-500 mr-2"></i>
+                        <span className="text-gray-700">Open Late</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+                    <i className="fas fa-info-circle text-blue-600 mt-0.5"></i>
+                    <p className="text-sm text-blue-900">
+                      Your suggestion will be reviewed by our team before being
+                      added to the app.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Footer Button */}
+                <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 mb-16">
+                  <button
+                    onClick={handleSubmit}
+                    className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    disabled={
+                      placeName.trim().length < 1 ||
+                      location.trim().length < 1 ||
+                      description.trim().length < 10
+                    }
+                  >
+                    Submit Suggestion
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Review Modal Component
+      function ReviewModal({ place, onClose, onSubmit }) {
+        const [rating, setRating] = useState(0);
+        const [hoverRating, setHoverRating] = useState(0);
+        const [noiseLevel, setNoiseLevel] = useState(3);
+        const [crowdedness, setCrowdedness] = useState(3);
+        const [reviewText, setReviewText] = useState("");
+
+        const handleSubmit = () => {
+          if (rating === 0) {
+            alert("Please provide a rating");
+            return;
+          }
+          if (reviewText.trim().length < 10) {
+            alert("Please write at least 10 characters for your review");
+            return;
+          }
+          onSubmit();
+        };
+
+        return (
+          <div className="fixed inset-0 z-[1001]">
+            <div
+              className="modal-overlay absolute inset-0"
+              onClick={onClose}
+            ></div>
+            <div className="absolute inset-x-0 bottom-0 max-w-[430px] mx-auto">
+              <div className="modal-content bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto">
+                {/* Header */}
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-3xl">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Write a Review
+                    </h3>
+                    <button onClick={onClose} className="p-2 -mr-2">
+                      <i className="fas fa-times text-gray-500 text-xl"></i>
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">{place.name}</p>
+                </div>
+
+                {/* Form Content */}
+                <div className="p-6 space-y-6">
+                  {/* Overall Rating */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-3">
+                      Overall Rating
+                    </label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => setRating(star)}
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(0)}
+                          className="text-3xl focus:outline-none"
+                        >
+                          <i
+                            className={`${
+                              (hoverRating || rating) >= star ? "fas" : "far"
+                            } fa-star ${
+                              (hoverRating || rating) >= star
+                                ? "text-yellow-400"
+                                : "text-gray-300"
+                            }`}
+                          ></i>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Noise Level */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-3">
+                      Noise Level:{" "}
+                      {
+                        ["Silent", "Quiet", "Moderate", "Noisy", "Very Noisy"][
+                          noiseLevel - 1
+                        ]
+                      }
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      value={noiseLevel}
+                      onChange={(e) => setNoiseLevel(parseInt(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Silent</span>
+                      <span>Very Noisy</span>
+                    </div>
+                  </div>
+
+                  {/* Crowdedness */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-3">
+                      Crowdedness:{" "}
+                      {
+                        [
+                          "Empty",
+                          "Few People",
+                          "Moderate",
+                          "Busy",
+                          "Very Busy",
+                        ][crowdedness - 1]
+                      }
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      value={crowdedness}
+                      onChange={(e) => setCrowdedness(parseInt(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Empty</span>
+                      <span>Very Busy</span>
+                    </div>
+                  </div>
+
+                  {/* Review Text */}
+                  <div>
+                    <label className="block font-semibold text-gray-900 mb-3">
+                      Your Review
+                    </label>
+                    <textarea
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      placeholder="Share your experience at this study place..."
+                      className="w-full border border-gray-300 rounded-lg p-3 h-32 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {reviewText.length} characters (minimum 10)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Footer Button */}
+                <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4">
+                  <button
+                    onClick={handleSubmit}
+                    className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    disabled={rating === 0 || reviewText.trim().length < 10}
+                  >
+                    Submit Review
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Render App
+      ReactDOM.render(<App />, document.getElementById("root"));
+    </script>
+  </body>
+</html>
